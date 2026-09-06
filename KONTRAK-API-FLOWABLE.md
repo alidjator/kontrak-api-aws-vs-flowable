@@ -220,7 +220,7 @@ tidak valid — lihat
 [§2.4 poin 4](#24-keputusan-dmn-internal--prasyarat-deployment) &
 [§6.1 poin 2](#61-risiko)) tidak didokumentasikan eksplisit di
 spesifikasi resmi Flowable untuk operasi ini — kegagalan itu terjadi di
-dalam mesin proses saat mengeksekusi Business Rule Task, bukan validasi
+dalam mesin proses saat mengeksekusi Service Task DMN, bukan validasi
 REST layer biasa seperti 2 kode di atas. Kemungkinan besar tetap `4xx`,
 tapi belum pernah dicoba langsung ke server produksi dari proyek ini.
 
@@ -231,10 +231,14 @@ header persis sama): `src/composables/useStartProcessInstance.ts` (fungsi
 ### 2.4. Keputusan DMN internal & prasyarat deployment
 
 Tepat setelah `Gateway_KategoriNilai`, proses ini memanggil satu
-**Business Rule Task DMN** (`DmnServiceTask_TentukanApproval`,
+**Service Task DMN** (`DmnServiceTask_TentukanApproval`,
 `flowable:type="dmn"`, memanggil decision `keputusanApprovalBod` dari
 `examples/keputusan-approval-bod.dmn`) SEBELUM sampai ke task menunggu
-pertama (`UserTask_ApprovalBod`). Ini **bukan panggilan API terpisah** —
+pertama (`UserTask_ApprovalBod`). Elemen ini Service Task biasa, BUKAN
+`<bpmn:businessRuleTask>` — lihat komentar KOREKSI di kepala
+`examples/approval-berita-acara.bpmn` untuk riwayat kenapa
+`businessRuleTask` gagal deploy di server produksi dan sengaja diganti
+jadi Service Task Type `dmn`. Ini **bukan panggilan API terpisah** —
 Flowable menjalankan decision DMN ini sepenuhnya **di dalam mesin proses
 sendiri**, secara sinkron, sebagai bagian dari transaksi Start Instance
 yang sama (tidak ada wait state di antaranya). Konsekuensi praktis untuk
