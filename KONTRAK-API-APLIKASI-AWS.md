@@ -23,16 +23,17 @@ kerja lengkap.
 
 ## 1. Ringkasan — dua endpoint yang harus dibangun
 
-Proses "Approval Berita Acara" memicu **2 HTTP callback PUSH** ke Aplikasi
-AWS (Agreement Workflow System) — selanjutnya disebut Aplikasi AWS —
-lewat mekanisme Flowable `flowable:taskListener`/`flowable:type="http"`.
+Proses "Approval Berita Acara" memicu **2 HTTP callback PUSH** ke
+Agreement Workflow System — selanjutnya disebut **Aplikasi AWS**
+(bukan Amazon Web Services — kebetulan sama singkatannya) — lewat
+mekanisme Flowable `flowable:taskListener`/`flowable:type="http"`.
 Kedua endpoint di bawah ini **harus dibangun & di-hosting oleh Aplikasi
 AWS** — Flowable hanya memanggilnya (klien), tidak menyediakannya:
 
-| Endpoint | Dipicu dari | Kapan |
-|---|---|---|
-| [§2 Endpoint A](#2-endpoint-a--notifikasi-task-baru) — Notifikasi Task Baru | Task Listener `UserTask_ApprovalBod` | Setiap task Approval BOD baru dibuat (berkali-kali per instance, paralel) |
-| [§3 Endpoint B](#3-endpoint-b--callback-hasil-approval) — Callback Hasil Approval | Service Task `ServiceTask_CallbackHasil` | Sekali per instance, setelah SEMUA approval selesai |
+| No. | Endpoint | Dipicu dari | Kapan |
+|---|---|---|---|
+| 1 | [§2 Endpoint A](#2-endpoint-a--notifikasi-task-baru) — Notifikasi Task Baru | Task Listener `UserTask_ApprovalBod` | Setiap task Approval BOD baru dibuat (berkali-kali per instance, paralel) |
+| 2 | [§3 Endpoint B](#3-endpoint-b--callback-hasil-approval) — Callback Hasil Approval | Service Task `ServiceTask_CallbackHasil` | Sekali per instance, setelah SEMUA approval selesai |
 
 Push ini **sengaja dijalankan dual-channel** bersama PULL (kesepakatan
 RINGKASAN-PEMBAHASAN.md Update 3): push memberi kecepatan (real-time),
@@ -45,28 +46,35 @@ pemicu push ini sudah diimplementasikan penuh di sisi BPMN; yang masih
 PLACEHOLDER cuma URL tujuannya — itulah "2 kontrak API" yang harus
 dibangun.
 
-```
-┌────────────────┐                                       ┌────────────────┐
-│  Aplikasi AWS  │◀───── PUSH: Endpoint A (§2) ──────────│    Flowable    │
-│                │       notifikasi task baru             │  (proses ini)  │
-│                │◀───── PUSH: Endpoint B (§3) ──────────│                │
-│                │       callback hasil approval           │                │
-└────────────────┘                                       └────────────────┘
+```mermaid
+sequenceDiagram
+    participant FLW as Flowable (proses ini)
+    participant AWS as Aplikasi AWS
+
+    loop Tiap task Approval BOD baru dibuat
+        FLW-->>AWS: PUSH Endpoint A (§2) — notifikasi task baru
+    end
+
+    FLW-->>AWS: PUSH Endpoint B (§3) — callback hasil approval<br/>(setelah SEMUA approval selesai)
 ```
 
 ---
 
 ## 2. Endpoint A — Notifikasi Task Baru
 
-| | |
-|---|---|
-| **Dipicu dari** | `flowable:taskListener` event `create` pada `UserTask_ApprovalBod` (baris ~361–385 di `examples/approval-berita-acara.bpmn`) |
-| **Kapan terpicu** | Setiap kali SATU instance task Approval BOD dibuat — untuk multi-instance paralel, ini terpicu **berkali-kali per process instance** (satu kali per approver/candidate group dalam `dynamicApproverGroups`) |
-| **Method** | `POST` |
-| **URL** | PLACEHOLDER saat ini: `https://aplikasi-utama.contoh/api/notifikasi/task-baru` — **ganti dengan URL asli endpoint Aplikasi AWS** |
-| **Header** | `Content-Type: application/json` |
-| **Timeout klien** | 5 detik connect + 5 detik read (di-hardcode di script listener) |
-| **Respons diharapkan** | **Tidak diperiksa sama sekali** oleh Flowable — script listener memanggil `conn.getResponseCode()` semata-mata untuk memaksa request selesai terkirim (flush), nilainya tidak dibaca/dicek. Disarankan tetap mengembalikan `2xx` secepatnya (endpoint ini dipanggil sinkron dari dalam transaksi `taskListener` — lihat [§4](#4-risiko--hal-yang-belum-teruji-di-server-produksi) soal implikasi latensinya) dan tidak perlu balikan body apa pun |
+**Dipicu dari:** `flowable:taskListener` event `create` pada `UserTask_ApprovalBod` (baris ~361–385 di `examples/approval-berita-acara.bpmn`)
+
+**Kapan terpicu:** Setiap kali SATU instance task Approval BOD dibuat — untuk multi-instance paralel, ini terpicu **berkali-kali per process instance** (satu kali per approver/candidate group dalam `dynamicApproverGroups`)
+
+**Method:** `POST`
+
+**URL:** PLACEHOLDER saat ini: `https://aplikasi-utama.contoh/api/notifikasi/task-baru` — **ganti dengan URL asli endpoint Aplikasi AWS**
+
+**Header:** `Content-Type: application/json`
+
+**Timeout klien:** 5 detik connect + 5 detik read (di-hardcode di script listener)
+
+**Respons diharapkan:** **Tidak diperiksa sama sekali** oleh Flowable — script listener memanggil `conn.getResponseCode()` semata-mata untuk memaksa request selesai terkirim (flush), nilainya tidak dibaca/dicek. Disarankan tetap mengembalikan `2xx` secepatnya (endpoint ini dipanggil sinkron dari dalam transaksi `taskListener` — lihat [§4](#4-risiko--hal-yang-belum-teruji-di-server-produksi) soal implikasi latensinya) dan tidak perlu balikan body apa pun
 
 ### 2.1. Skema body request
 
@@ -81,7 +89,7 @@ Semua field string:
 }
 ```
 
-Contoh nyata:
+**Contoh nyata:**
 
 ```json
 {
@@ -111,14 +119,17 @@ Contoh nyata:
 
 ## 3. Endpoint B — Callback Hasil Approval
 
-| | |
-|---|---|
-| **Dipicu dari** | `ServiceTask_CallbackHasil` (`flowable:type="http"`, baris ~434–461) |
-| **Kapan terpicu** | Sekali per process instance, setelah **SEMUA** instance paralel `UserTask_ApprovalBod` selesai (approve/tolak/revisi) — ini langkah terakhir sebelum proses berakhir (`EndEvent_1`) |
-| **Method** | `POST` |
-| **URL** | PLACEHOLDER saat ini: `https://aplikasi-utama.contoh/api/callback/hasil-approval` — **ganti dengan URL asli endpoint Aplikasi AWS** |
-| **Header** | `Content-Type: application/json` |
-| **Respons diharapkan** | Field `responseVariableName` di service task ini diset ke `resultCallbackResponse` — artinya **body respons HTTP disimpan sebagai variabel proses** di sisi Flowable. Namun task ini adalah langkah TERAKHIR sebelum `EndEvent_1` — proses berakhir tepat sesudahnya, jadi saat ini **tidak ada logic BPMN apa pun yang membaca `resultCallbackResponse`**. Aplikasi AWS bebas mengembalikan body apa pun (disarankan tetap `2xx` + body JSON ringkas berisi status penerimaan, untuk memudahkan audit lewat riwayat variabel proses kalau suatu saat perlu ditelusuri) |
+**Dipicu dari:** `ServiceTask_CallbackHasil` (`flowable:type="http"`, baris ~434–461)
+
+**Kapan terpicu:** Sekali per process instance, setelah **SEMUA** instance paralel `UserTask_ApprovalBod` selesai (approve/tolak/revisi) — ini langkah terakhir sebelum proses berakhir (`EndEvent_1`)
+
+**Method:** `POST`
+
+**URL:** PLACEHOLDER saat ini: `https://aplikasi-utama.contoh/api/callback/hasil-approval` — **ganti dengan URL asli endpoint Aplikasi AWS**
+
+**Header:** `Content-Type: application/json`
+
+**Respons diharapkan:** Field `responseVariableName` di service task ini diset ke `resultCallbackResponse` — artinya **body respons HTTP disimpan sebagai variabel proses** di sisi Flowable. Namun task ini adalah langkah TERAKHIR sebelum `EndEvent_1` — proses berakhir tepat sesudahnya, jadi saat ini **tidak ada logic BPMN apa pun yang membaca `resultCallbackResponse`**. Aplikasi AWS bebas mengembalikan body apa pun (disarankan tetap `2xx` + body JSON ringkas berisi status penerimaan, untuk memudahkan audit lewat riwayat variabel proses kalau suatu saat perlu ditelusuri)
 
 ### 3.1. Skema body request
 
@@ -131,7 +142,7 @@ Contoh nyata:
 }
 ```
 
-Contoh nyata (Komite 3 BOD, satu tolak satu revisi satu terima):
+**Contoh nyata** (Komite 3 BOD, satu tolak satu revisi satu terima):
 
 ```json
 {
@@ -188,13 +199,32 @@ Studio ini (aplikasi BPMN/DMN Studio Vue) sekarang punya fitur Panel
 Properti yang bisa langsung mengedit kedua lokasi placeholder ini **tanpa
 edit XML manual**:
 
-| No. | Langkah | Rujukan |
-|---|---|---|
-| 1 | Buka `examples/approval-berita-acara.bpmn` di Editor Diagram | — |
-| 2 | **Endpoint A** (notifikasi task baru): klik elemen `UserTask_ApprovalBod` ("Approval BOD") di kanvas → di Panel Properti, bagian "Flowable — Task Listener" → cari baris dengan Event `create` → field isi script/URL listener ini bisa diedit langsung di sana | Catatan Teknis butir 27 di README.md |
-| 3 | **Endpoint B** (callback hasil approval): klik elemen `ServiceTask_CallbackHasil` (nama tampilan di kanvas saat ini masih "Callback Hasil ke Aplikasi Utama (PLACEHOLDER)" — belum ikut diubah ke "Aplikasi AWS" karena perubahan istilah di dokumen ini sengaja dibatasi ke dokumen kontrak API, tidak menyentuh BPMN; ganti manual di Panel Properti kalau mau disamakan, murni kosmetik) di kanvas → di Panel Properti akan muncul field `Request URL` (dan field HTTP lain: Request Method/Body/Headers/Response Variable Name/Abaikan Exception) — ganti `Request URL` dengan URL asli Endpoint B | Catatan Teknis butir 26 di README.md |
-| 4 | Setelah kedua URL diganti, kembali ke kanvas — outline merah/kuning & badge peringatan pada kedua elemen ini (kalau sebelumnya muncul karena domain contoh) akan otomatis hilang, dan Dialog Deploy tidak lagi menampilkan peringatan domain contoh untuk kedua elemen ini | Catatan Teknis butir 28 (outline/badge) & 25 (Dialog Deploy) di README.md |
-| 5 | Deploy diagram (key proses yang sama akan otomatis jadi versi baru, tidak menimpa versi lama — instance yang sedang berjalan di versi lama tetap memakai URL placeholder sampai selesai; hanya instance BARU yang memakai URL asli) | — |
+1. Buka `examples/approval-berita-acara.bpmn` di Editor Diagram.
+2. **Endpoint A** (notifikasi task baru): klik elemen
+   `UserTask_ApprovalBod` ("Approval BOD") di kanvas → di Panel
+   Properti, bagian "Flowable — Task Listener" → cari baris dengan
+   Event `create` → field isi script/URL listener ini bisa diedit
+   langsung di sana (lihat Catatan Teknis butir 27 di README.md).
+3. **Endpoint B** (callback hasil approval): klik elemen
+   `ServiceTask_CallbackHasil` (nama tampilan di kanvas saat ini masih
+   "Callback Hasil ke Aplikasi Utama (PLACEHOLDER)" — belum ikut diubah
+   ke "Aplikasi AWS" karena perubahan istilah di dokumen ini sengaja
+   dibatasi ke dokumen kontrak API, tidak menyentuh BPMN; ganti manual
+   di Panel Properti kalau mau disamakan, murni kosmetik) di kanvas →
+   di Panel Properti akan muncul field `Request URL` (dan field HTTP
+   lain: Request Method/Body/Headers/Response Variable Name/Abaikan
+   Exception) — ganti `Request URL` dengan URL asli Endpoint B (lihat
+   Catatan Teknis butir 26 di README.md).
+4. Setelah kedua URL diganti, kembali ke kanvas — outline merah/kuning
+   & badge peringatan pada kedua elemen ini (kalau sebelumnya muncul
+   karena domain contoh) akan otomatis hilang, dan Dialog Deploy tidak
+   lagi menampilkan peringatan domain contoh untuk kedua elemen ini
+   (lihat Catatan Teknis butir 28 — outline/badge — & 25 — Dialog
+   Deploy — di README.md).
+5. Deploy diagram (key proses yang sama akan otomatis jadi versi baru,
+   tidak menimpa versi lama — instance yang sedang berjalan di versi
+   lama tetap memakai URL placeholder sampai selesai; hanya instance
+   BARU yang memakai URL asli).
 
 Nama elemen di atas (`UserTask_ApprovalBod`, `ServiceTask_CallbackHasil`)
 adalah `id` di XML — kalau bingung mencari elemen mana yang mana di kanvas,

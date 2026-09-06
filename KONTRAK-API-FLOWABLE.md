@@ -46,8 +46,11 @@
 ## 1. Ringkasan — alur end-to-end
 
 Untuk menjalankan & memantau proses "Approval Berita Acara" dari awal
-sampai akhir, Aplikasi AWS memanggil 3 endpoint Flowable Process REST API
-bawaan (bukan buatan proyek ini):
+sampai akhir, **Aplikasi AWS** (Agreement Workflow System — bukan Amazon
+Web Services, kebetulan sama singkatannya; lihat
+[KONTRAK-API-APLIKASI-AWS.md §1](./KONTRAK-API-APLIKASI-AWS.md#1-ringkasan--dua-endpoint-yang-harus-dibangun))
+memanggil 3 endpoint Flowable Process REST API bawaan (bukan buatan
+proyek ini):
 
 | No. | Endpoint | Dipanggil kapan |
 |---|---|---|
@@ -82,18 +85,22 @@ grup untuk badge notifikasi, mengecek status akhir process instance, atau
 menarik riwayat audit lengkap — semuanya dikumpulkan di
 [§5 Endpoint Monitoring & Operasional Tambahan](#5-endpoint-monitoring--operasional-tambahan).
 
-```
-┌────────────────┐                                       ┌────────────────┐
-│  Aplikasi AWS  │──── 1. POST Start Instance (§2) ─────▶│    Flowable    │
-│                │                                        │  (proses ini)  │
-│                │──── 2. GET  PULL-Polling (§3) ────────▶│                │
-│                │                                        │                │
-│                │──── 3. POST Complete Task (§4) ───────▶│                │
-│                │       (diulang tiap approver selesai)   │                │
-└────────────────┘                                       └────────────────┘
-        ▲                                                          │
-        └──────── 4. PUSH Callback Hasil (setelah semua selesai) ──┘
-                  (Endpoint B, lihat KONTRAK-API-APLIKASI-AWS.md)
+```mermaid
+sequenceDiagram
+    participant AWS as Aplikasi AWS
+    participant FLW as Flowable (proses ini)
+
+    AWS->>FLW: 1. POST Start Instance (§2)
+
+    loop Berkala (jaring pengaman)
+        AWS->>FLW: 2. GET PULL-Polling (§3)
+    end
+
+    loop Tiap approver menyelesaikan keputusannya
+        AWS->>FLW: 3. POST Complete Task (§4)
+    end
+
+    FLW-->>AWS: 4. PUSH Callback Hasil — setelah SEMUA approver selesai<br/>(Endpoint B, lihat KONTRAK-API-APLIKASI-AWS.md)
 ```
 
 Ketiga endpoint ini adalah Flowable REST bawaan (`title: "Flowable REST
