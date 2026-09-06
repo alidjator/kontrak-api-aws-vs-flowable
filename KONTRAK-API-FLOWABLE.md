@@ -111,19 +111,27 @@ DAN terhadap kode yang sudah lama berjalan di Studio ini sendiri
 `useDashboardSummary.ts`) — jadi bisa dipakai langsung sebagai contoh
 implementasi yang terbukti jalan.
 
-Di seluruh contoh URL pada dokumen ini (§2 sampai §5), `{VITE_FLOWABLE_BASE_URL}`
-adalah **placeholder** untuk base URL server Flowable yang sesungguhnya
-dipakai — bukan literal yang dikirim apa adanya. Nilai yang dipakai di
-lingkungan yang sudah berjalan saat ini adalah
-`https://api-aws.satu.solutions/flowable-rest/service` (lihat
-`.env.example`) — jadi URL Start Instance di §2, misalnya, secara nyata
-adalah `https://api-aws.satu.solutions/flowable-rest/service/runtime/process-instances`.
+Di seluruh contoh URL pada dokumen ini (§2 sampai §5), `{FLOWABLE_BASE_URL}`
+adalah **placeholder generik** untuk base URL server Flowable yang
+sesungguhnya dipakai — bukan literal yang dikirim apa adanya, dan bukan
+nama environment variable yang harus dibuat persis begitu di sisi
+Aplikasi AWS (tim Aplikasi AWS bebas menamainya apa saja di sistem
+mereka sendiri). Nilai yang dipakai di lingkungan yang sudah berjalan
+saat ini adalah `https://api-aws.satu.solutions/flowable-rest/service`
+(lihat `.env.example`) — jadi URL Start Instance di §2, misalnya, secara
+nyata adalah
+`https://api-aws.satu.solutions/flowable-rest/service/runtime/process-instances`.
 Kalau server Flowable berpindah host/domain di kemudian hari, ganti nilai
 ini sesuai server yang dipakai saat itu; kredensial Basic Auth di header
 `Authorization` juga perlu dikoordinasikan bersamaan dengan tim yang
-mengelola server Flowable produksi. Nama `VITE_FLOWABLE_BASE_URL` sendiri
-adalah env var internal Studio ini — disebut di sini hanya karena
-nilainya kebetulan sama persis dengan `basePath` di spesifikasi Flowable.
+mengelola server Flowable produksi. Catatan khusus untuk tim Studio ini
+sendiri (BUKAN Aplikasi AWS): nilai yang sama ini disimpan sebagai
+`VITE_FLOWABLE_BASE_URL` di `.env` Studio — nama env var itu memakai
+prefiks `VITE_` karena konvensi build tool Vite yang dipakai Studio ini,
+tidak ada hubungannya dengan tool/bahasa yang dipakai Aplikasi AWS
+sendiri, jadi sengaja TIDAK dipakai sebagai placeholder di contoh-contoh
+URL dokumen ini supaya tidak menyiratkan Aplikasi AWS perlu ikut memakai
+Vite atau nama env var yang sama persis.
 
 ---
 
@@ -131,7 +139,7 @@ nilainya kebetulan sama persis dengan `basePath` di spesifikasi Flowable.
 
 **Method:** `POST`
 
-**URL:** `{VITE_FLOWABLE_BASE_URL}/runtime/process-instances`
+**URL:** `{FLOWABLE_BASE_URL}/runtime/process-instances`
 
 **Header:** `Content-Type: application/json`, `Authorization: Basic <base64 username:password>` (hanya kalau kredensial Flowable diisi — kalau kosong, header ini tidak dikirim sama sekali, lihat `useFlowableStore().authHeader`)
 
@@ -164,7 +172,7 @@ Contoh berikut memakai 3 approver BOD dengan ID angka polos.
 #### Request
 
 ```
-POST {VITE_FLOWABLE_BASE_URL}/runtime/process-instances
+POST {FLOWABLE_BASE_URL}/runtime/process-instances
 Content-Type: application/json
 Authorization: Basic <base64 username:password>
 ```
@@ -189,7 +197,7 @@ Aplikasi AWS (respons asli Flowable punya lebih banyak field):
 ```json
 {
   "id": "4b8e1d0a-5678-4cde-8f01-23456789abcd",
-  "url": "{VITE_FLOWABLE_BASE_URL}/runtime/process-instances/4b8e1d0a-5678-4cde-8f01-23456789abcd",
+  "url": "{FLOWABLE_BASE_URL}/runtime/process-instances/4b8e1d0a-5678-4cde-8f01-23456789abcd",
   "businessKey": "BA-2026-00123"
 }
 ```
@@ -244,7 +252,7 @@ Aplikasi AWS:
 
 **Method:** `GET`
 
-**URL:** `{VITE_FLOWABLE_BASE_URL}/runtime/tasks?candidateGroup={key}&includeProcessVariables=true`
+**URL:** `{FLOWABLE_BASE_URL}/runtime/tasks?candidateGroup={key}&includeProcessVariables=true`
 
 **Header:** `Authorization: Basic <base64 username:password>` (hanya kalau kredensial diisi, sama seperti §2 — endpoint GET ini tidak butuh `Content-Type` karena tidak ada body request)
 
@@ -304,7 +312,7 @@ menyertakan variabel proses.
 #### Request
 
 ```
-GET {VITE_FLOWABLE_BASE_URL}/runtime/tasks?candidateGroup=2&includeProcessVariables=true
+GET {FLOWABLE_BASE_URL}/runtime/tasks?candidateGroup=2&includeProcessVariables=true
 Authorization: Basic <base64 username:password>
 ```
 
@@ -363,7 +371,7 @@ Contoh implementasi yang terbukti jalan: lihat rujukan komposabel di akhir
 
 **Method:** `POST`
 
-**URL:** `{VITE_FLOWABLE_BASE_URL}/runtime/tasks/{taskId}` (`{taskId}` didapat dari notifikasi Endpoint A sebagai `taskId`, atau dari field `id` hasil PULL §3)
+**URL:** `{FLOWABLE_BASE_URL}/runtime/tasks/{taskId}` (`{taskId}` didapat dari notifikasi Endpoint A sebagai `taskId`, atau dari field `id` hasil PULL §3)
 
 **Header:** `Content-Type: application/json`, `Authorization: Basic <base64 username:password>` (sama seperti §2/§3)
 
@@ -405,7 +413,7 @@ Contoh berikut memakai keputusan `TERIMA`.
 #### Request
 
 ```
-POST {VITE_FLOWABLE_BASE_URL}/runtime/tasks/{taskId}
+POST {FLOWABLE_BASE_URL}/runtime/tasks/{taskId}
 Content-Type: application/json
 Authorization: Basic <base64 username:password>
 ```
@@ -478,7 +486,7 @@ masing-masing subbagian sebelum diadopsi sebagai fitur Aplikasi AWS.
 
 **Method:** `GET`
 
-**URL:** `{VITE_FLOWABLE_BASE_URL}/runtime/tasks?candidateGroup={key}&size=0`
+**URL:** `{FLOWABLE_BASE_URL}/runtime/tasks?candidateGroup={key}&size=0`
 
 **Header:** `Authorization: Basic <base64 username:password>` (sama seperti §3)
 
@@ -494,7 +502,7 @@ Contoh berikut menghitung task menunggu untuk approver grup `"2"`.
 ##### Request
 
 ```
-GET {VITE_FLOWABLE_BASE_URL}/runtime/tasks?candidateGroup=2&size=0
+GET {FLOWABLE_BASE_URL}/runtime/tasks?candidateGroup=2&size=0
 Authorization: Basic <base64 username:password>
 ```
 
@@ -528,7 +536,7 @@ tapi teknik query-nya identik.
 
 **Method:** `GET`
 
-**URL:** `{VITE_FLOWABLE_BASE_URL}/runtime/tasks/{taskId}`
+**URL:** `{FLOWABLE_BASE_URL}/runtime/tasks/{taskId}`
 
 **Header:** `Authorization: Basic <base64 username:password>` (sama seperti §3)
 
@@ -542,7 +550,7 @@ detail lengkapnya tanpa query ulang lewat §3 dengan filter `candidateGroup`.
 ##### Request
 
 ```
-GET {VITE_FLOWABLE_BASE_URL}/runtime/tasks/7a3f9c2e-1234-4abc-9def-0123456789ab
+GET {FLOWABLE_BASE_URL}/runtime/tasks/7a3f9c2e-1234-4abc-9def-0123456789ab
 Authorization: Basic <base64 username:password>
 ```
 
@@ -584,9 +592,9 @@ lihat `FlowableTask` di `src/types/flowable.ts`:
 
 **Method:** `GET`
 
-**URL (by ID):** `{VITE_FLOWABLE_BASE_URL}/runtime/process-instances/{processInstanceId}`
+**URL (by ID):** `{FLOWABLE_BASE_URL}/runtime/process-instances/{processInstanceId}`
 
-**URL (by Business Key):** `{VITE_FLOWABLE_BASE_URL}/runtime/process-instances?businessKey={key}`
+**URL (by Business Key):** `{FLOWABLE_BASE_URL}/runtime/process-instances?businessKey={key}`
 
 **Header:** `Authorization: Basic <base64 username:password>` (sama seperti §3)
 
@@ -614,7 +622,7 @@ di file sebelah):
 ##### Request
 
 ```
-GET {VITE_FLOWABLE_BASE_URL}/runtime/process-instances/4b8e1d0a-5678-4cde-8f01-23456789abcd
+GET {FLOWABLE_BASE_URL}/runtime/process-instances/4b8e1d0a-5678-4cde-8f01-23456789abcd
 Authorization: Basic <base64 username:password>
 ```
 
@@ -641,7 +649,7 @@ langkah 2.
 ##### Request
 
 ```
-GET {VITE_FLOWABLE_BASE_URL}/history/historic-process-instances?processInstanceId=4b8e1d0a-5678-4cde-8f01-23456789abcd
+GET {FLOWABLE_BASE_URL}/history/historic-process-instances?processInstanceId=4b8e1d0a-5678-4cde-8f01-23456789abcd
 Authorization: Basic <base64 username:password>
 ```
 
@@ -684,7 +692,7 @@ termasuk fallback ke histori): `src/composables/useProcessTracking.ts`
 
 **Method:** `GET`
 
-**URL:** `{VITE_FLOWABLE_BASE_URL}/runtime/process-instances/{processInstanceId}/variables`
+**URL:** `{FLOWABLE_BASE_URL}/runtime/process-instances/{processInstanceId}/variables`
 
 **Header:** `Authorization: Basic <base64 username:password>` (sama seperti §3)
 
@@ -702,7 +710,7 @@ bukan daftar task.
 ##### Request
 
 ```
-GET {VITE_FLOWABLE_BASE_URL}/runtime/process-instances/4b8e1d0a-5678-4cde-8f01-23456789abcd/variables
+GET {FLOWABLE_BASE_URL}/runtime/process-instances/4b8e1d0a-5678-4cde-8f01-23456789abcd/variables
 Authorization: Basic <base64 username:password>
 ```
 
@@ -745,7 +753,7 @@ Contoh implementasi yang terbukti jalan: `src/composables/useProcessTracking.ts`
 
 **Method:** `GET`
 
-**URL:** `{VITE_FLOWABLE_BASE_URL}/history/historic-activity-instances?processInstanceId={id}`
+**URL:** `{FLOWABLE_BASE_URL}/history/historic-activity-instances?processInstanceId={id}`
 
 **Header:** `Authorization: Basic <base64 username:password>` (sama seperti §3)
 
@@ -760,7 +768,7 @@ approver mana yang memproses task kapan lewat Complete Task (§4).
 ##### Request
 
 ```
-GET {VITE_FLOWABLE_BASE_URL}/history/historic-activity-instances?processInstanceId=4b8e1d0a-5678-4cde-8f01-23456789abcd
+GET {FLOWABLE_BASE_URL}/history/historic-activity-instances?processInstanceId=4b8e1d0a-5678-4cde-8f01-23456789abcd
 Authorization: Basic <base64 username:password>
 ```
 
@@ -817,7 +825,7 @@ pemformatan durasi & label jenis aktivitas ke Bahasa Indonesia):
 
 **Method:** `POST`
 
-**URL:** `{VITE_FLOWABLE_BASE_URL}/runtime/tasks/{taskId}` (endpoint yang SAMA dengan **Complete Task**, §4 — bedanya cuma nilai `action` di body)
+**URL:** `{FLOWABLE_BASE_URL}/runtime/tasks/{taskId}` (endpoint yang SAMA dengan **Complete Task**, §4 — bedanya cuma nilai `action` di body)
 
 **Header:** `Content-Type: application/json`, `Authorization: Basic <base64 username:password>` (sama seperti §4)
 
@@ -840,7 +848,7 @@ Contoh berikut mendelegasikan task ke approver backup.
 ##### Request
 
 ```
-POST {VITE_FLOWABLE_BASE_URL}/runtime/tasks/{taskId}
+POST {FLOWABLE_BASE_URL}/runtime/tasks/{taskId}
 Content-Type: application/json
 Authorization: Basic <base64 username:password>
 ```
@@ -877,7 +885,7 @@ status "sedang didelegasikan" ke penggunanya.
 
 **Method:** `DELETE`
 
-**URL:** `{VITE_FLOWABLE_BASE_URL}/runtime/process-instances/{processInstanceId}` (parameter `deleteReason` opsional lewat query string, lihat contoh)
+**URL:** `{FLOWABLE_BASE_URL}/runtime/process-instances/{processInstanceId}` (parameter `deleteReason` opsional lewat query string, lihat contoh)
 
 **Header:** `Authorization: Basic <base64 username:password>` (sama seperti §3 — tidak ada body request)
 
@@ -899,7 +907,7 @@ instance ini berhenti, bukan karena selesai normal.
 ##### Request
 
 ```
-DELETE {VITE_FLOWABLE_BASE_URL}/runtime/process-instances/4b8e1d0a-5678-4cde-8f01-23456789abcd?deleteReason=Dibatalkan+oleh+requester+-+data+salah
+DELETE {FLOWABLE_BASE_URL}/runtime/process-instances/4b8e1d0a-5678-4cde-8f01-23456789abcd?deleteReason=Dibatalkan+oleh+requester+-+data+salah
 Authorization: Basic <base64 username:password>
 ```
 
@@ -927,7 +935,7 @@ di luar Flowable) kalau pembatalannya berhasil.
 
 **Method:** `POST` (tambah komentar) / `GET` (lihat daftar komentar)
 
-**URL:** `{VITE_FLOWABLE_BASE_URL}/runtime/tasks/{taskId}/comments`
+**URL:** `{FLOWABLE_BASE_URL}/runtime/tasks/{taskId}/comments`
 
 **Header:** `Content-Type: application/json` (khusus `POST`), `Authorization: Basic <base64 username:password>` (sama seperti §4)
 
@@ -951,7 +959,7 @@ keputusan `REVISI`.
 ##### Request
 
 ```
-POST {VITE_FLOWABLE_BASE_URL}/runtime/tasks/{taskId}/comments
+POST {FLOWABLE_BASE_URL}/runtime/tasks/{taskId}/comments
 Content-Type: application/json
 Authorization: Basic <base64 username:password>
 ```
@@ -998,7 +1006,7 @@ endpoint historic yang terpisah).
 
 **Method:** `GET`
 
-**URL:** `{VITE_FLOWABLE_BASE_URL}/runtime/process-instances/{processInstanceId}/diagram`
+**URL:** `{FLOWABLE_BASE_URL}/runtime/process-instances/{processInstanceId}/diagram`
 
 **Header:** `Authorization: Basic <base64 username:password>` (sama seperti §3)
 
@@ -1019,7 +1027,7 @@ Studio ini.
 ##### Request
 
 ```
-GET {VITE_FLOWABLE_BASE_URL}/runtime/process-instances/4b8e1d0a-5678-4cde-8f01-23456789abcd/diagram
+GET {FLOWABLE_BASE_URL}/runtime/process-instances/4b8e1d0a-5678-4cde-8f01-23456789abcd/diagram
 Authorization: Basic <base64 username:password>
 ```
 
@@ -1047,7 +1055,7 @@ mem-parsing-nya sebagai JSON.
 
 **Method:** `GET`
 
-**URL:** `{VITE_FLOWABLE_BASE_URL}/management/deadletter-jobs?processInstanceId={id}`
+**URL:** `{FLOWABLE_BASE_URL}/management/deadletter-jobs?processInstanceId={id}`
 
 **Header:** `Authorization: Basic <base64 username:password>` (sama seperti §3)
 
@@ -1067,7 +1075,7 @@ tanpa perlu akses langsung ke database/server Flowable.
 ##### Request
 
 ```
-GET {VITE_FLOWABLE_BASE_URL}/management/deadletter-jobs?processInstanceId=4b8e1d0a-5678-4cde-8f01-23456789abcd
+GET {FLOWABLE_BASE_URL}/management/deadletter-jobs?processInstanceId=4b8e1d0a-5678-4cde-8f01-23456789abcd
 Authorization: Basic <base64 username:password>
 ```
 
