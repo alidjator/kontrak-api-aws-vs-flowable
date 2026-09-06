@@ -218,13 +218,26 @@ edit XML manual**:
    lain: Request Method/Body/Headers/Response Variable Name/Abaikan
    Exception) — ganti `Request URL` dengan URL asli Endpoint B (lihat
    Catatan Teknis butir 26 di README.md).
-4. Setelah kedua URL diganti, kembali ke kanvas — outline merah/kuning
-   & badge peringatan pada kedua elemen ini (kalau sebelumnya muncul
-   karena domain contoh) akan otomatis hilang, dan Dialog Deploy tidak
-   lagi menampilkan peringatan domain contoh untuk kedua elemen ini
-   (lihat Catatan Teknis butir 28 — outline/badge — & 25 — Dialog
-   Deploy — di README.md).
-5. Deploy diagram (key proses yang sama akan otomatis jadi versi baru,
+4. **Kalau Endpoint B mensyaratkan autentikasi**: field `Request
+   Headers` pada elemen yang sama (langkah 3) sudah punya baris kedua
+   `Authorization: Bearer GANTI-TOKEN-DI-SINI-KALAU-ENDPOINT-BUTUH-AUTH`
+   — ganti nilai placeholder-nya dengan token/API key statis yang
+   sesungguhnya lewat Panel Properti (field ini menerima banyak baris
+   sekaligus, satu header per baris). Kalau Endpoint B **tidak** butuh
+   auth sama sekali, hapus baris `Authorization` ini seluruhnya supaya
+   tidak mengirim header yang tidak perlu. Nilai ini diedit sekali di
+   sini (sama seperti `Request URL`), BUKAN dikirim ulang tiap Start
+   Instance — token auth endpoint lazimnya tetap, beda dari variabel
+   proses lain yang memang spesifik per instance (lihat komentar
+   KOREKSI KETUJUH di kepala `examples/approval-berita-acara.bpmn`
+   untuk alasan lengkapnya).
+5. Setelah kedua URL (dan Authorization kalau perlu) diganti, kembali
+   ke kanvas — outline merah/kuning & badge peringatan pada kedua
+   elemen ini (kalau sebelumnya muncul karena domain contoh) akan
+   otomatis hilang, dan Dialog Deploy tidak lagi menampilkan peringatan
+   domain contoh untuk kedua elemen ini (lihat Catatan Teknis butir 28
+   — outline/badge — & 25 — Dialog Deploy — di README.md).
+6. Deploy diagram (key proses yang sama akan otomatis jadi versi baru,
    tidak menimpa versi lama — instance yang sedang berjalan di versi
    lama tetap memakai URL placeholder sampai selesai; hanya instance
    BARU yang memakai URL asli).
