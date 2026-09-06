@@ -60,14 +60,14 @@ proyek ini):
 
 **Urutan pemanggilan dari awal sampai akhir satu process instance:**
 
-1. Aplikasi AWS memanggil **Start Instance** (§2) → process instance baru
+1. Aplikasi AWS memanggil **Start Instance** ([§2](#2-endpoint-start-instance)) → process instance baru
    dibuat, task `UserTask_ApprovalBod` untuk tiap approver di
    `dynamicApproverGroups` langsung terbentuk paralel.
 2. Aplikasi AWS mengetahui adanya task baru lewat **PUSH** (Endpoint A,
    lihat [KONTRAK-API-APLIKASI-AWS.md](./KONTRAK-API-APLIKASI-AWS.md)) atau
-   lewat **PULL** (§3) sebagai jaring pengaman.
+   lewat **PULL** ([§3](#3-endpoint-pull-polling-task)) sebagai jaring pengaman.
 3. Setelah approver terkait menentukan keputusannya di Aplikasi AWS,
-   Aplikasi AWS memanggil **Complete Task** (§4) untuk menyelesaikan task
+   Aplikasi AWS memanggil **Complete Task** ([§4](#4-endpoint-complete-task)) untuk menyelesaikan task
    itu dengan keputusan `TERIMA`/`TOLAK`/`REVISI`. Langkah 2–3 berulang
    untuk **setiap** approver di `dynamicApproverGroups` (paralel, urutan
    penyelesaian bebas).
@@ -75,7 +75,7 @@ proyek ini):
    **Callback Hasil Approval** (Endpoint B, lihat
    [KONTRAK-API-APLIKASI-AWS.md](./KONTRAK-API-APLIKASI-AWS.md)) — proses
    berakhir sesudahnya. Aplikasi AWS juga bisa memverifikasi hasil akhir
-   kapan saja lewat PULL (§3, `includeProcessVariables=true`) tanpa
+   kapan saja lewat PULL ([§3](#3-endpoint-pull-polling-task), `includeProcessVariables=true`) tanpa
    menunggu callback ini.
 
 Selain 3 endpoint inti di atas, ada 5 endpoint Flowable bawaan lain yang
@@ -113,14 +113,14 @@ Aplikasi AWS) — `useStartProcessInstance.ts`, `useFlowableTasks.ts`,
 `useNotifyTasks.ts`, `useDashboardSummary.ts` — jadi bisa dipakai
 langsung sebagai contoh implementasi yang terbukti jalan.
 
-Di seluruh contoh URL pada dokumen ini (§2 sampai §5), `{FLOWABLE_BASE_URL}`
+Di seluruh contoh URL pada dokumen ini ([§2](#2-endpoint-start-instance) sampai [§5](#5-endpoint-monitoring--operasional-tambahan)), `{FLOWABLE_BASE_URL}`
 adalah **placeholder generik** untuk base URL server Flowable yang
 sesungguhnya dipakai — bukan literal yang dikirim apa adanya, dan bukan
 nama environment variable yang harus dibuat persis begitu di sisi
 Aplikasi AWS (tim Aplikasi AWS bebas menamainya apa saja di sistem
 mereka sendiri). Nilai yang dipakai di lingkungan yang sudah berjalan
 saat ini adalah `https://api-aws.satu.solutions/flowable-rest/service`
-(lihat `.env.example`) — jadi URL Start Instance di §2, misalnya, secara
+(lihat `.env.example`) — jadi URL Start Instance di [§2](#2-endpoint-start-instance), misalnya, secara
 nyata adalah
 `https://api-aws.satu.solutions/flowable-rest/service/runtime/process-instances`.
 Kalau server Flowable berpindah host/domain di kemudian hari, ganti nilai
@@ -260,7 +260,7 @@ Aplikasi AWS:
 
 **URL:** `{FLOWABLE_BASE_URL}/runtime/tasks?candidateGroup={key}&includeProcessVariables=true`
 
-**Header:** `Authorization: Basic <base64 username:password>` (hanya kalau kredensial diisi, sama seperti §2 — endpoint GET ini tidak butuh `Content-Type` karena tidak ada body request)
+**Header:** `Authorization: Basic <base64 username:password>` (hanya kalau kredensial diisi, sama seperti [§2](#2-endpoint-start-instance) — endpoint GET ini tidak butuh `Content-Type` karena tidak ada body request)
 
 Dipakai Aplikasi AWS untuk mengambil daftar task yang sedang menunggu untuk
 satu candidate group — ini **jaring pengaman** kalau channel PUSH (Endpoint
@@ -268,7 +268,7 @@ A/B, keduanya dijelaskan di [KONTRAK-API-APLIKASI-AWS.md](./KONTRAK-API-APLIKASI
 gagal terkirim, jadi Aplikasi AWS **wajib** memanggil endpoint ini secara
 berkala (interval sesuai kebutuhan/SLA Aplikasi AWS sendiri, dokumen ini
 tidak menetapkan angka baku) selain menunggu PUSH. `id` tiap task hasil
-query ini dipakai sebagai `{taskId}` saat memanggil **Complete Task** (§4).
+query ini dipakai sebagai `{taskId}` saat memanggil **Complete Task** ([§4](#4-endpoint-complete-task)).
 
 ### 3.1. Parameter query
 
@@ -299,7 +299,7 @@ dan [§3](./KONTRAK-API-APLIKASI-AWS.md#3-endpoint-b--callback-hasil-approval)):
 | 2 | `nilaiProjectRupiah` | Nilai yang dikirim saat Start Instance ([§2.1](#21-variabel-proses-yang-wajib-dikirim)) |
 | 3 | `kategoriNilai` | `"Kecil"`/`"Menengah"`/`"Besar"` — dihitung otomatis dari `nilaiProjectRupiah` oleh gateway di BPMN, BUKAN dikirim Aplikasi AWS (lihat [§2.4](#24-keputusan-dmn-internal--prasyarat-deployment)) |
 | 4 | `approvalBodLabel` | Label tampilan tingkat approval BOD (mis. `"2 BOD + Managing Director (dinamis)"`) — output decision DMN internal, murni untuk ditampilkan Aplikasi AWS, tidak dipakai logika BPMN apa pun (lihat [§2.4](#24-keputusan-dmn-internal--prasyarat-deployment)) |
-| 5 | `hasilApprovalBod` | Terisi sebagian atau lengkap, tergantung berapa banyak approver yang sudah menyelesaikan task-nya lewat **Complete Task** (§4) |
+| 5 | `hasilApprovalBod` | Terisi sebagian atau lengkap, tergantung berapa banyak approver yang sudah menyelesaikan task-nya lewat **Complete Task** ([§4](#4-endpoint-complete-task)) |
 
 Contoh implementasi yang terbukti jalan (pola query string, auth header,
 dan pola polling berkala dengan deteksi task baru): `src/composables/useFlowableTasks.ts`
@@ -359,7 +359,7 @@ per task:
 | No. | Field respons | Keterangan |
 |---|---|---|
 | 1 | `data` | Array task — kosong (`[]`) kalau tidak ada task menunggu untuk `candidateGroup` ini, BUKAN error |
-| 2 | `data[].id` | Dipakai sebagai `{taskId}` saat memanggil **Complete Task** (§4) |
+| 2 | `data[].id` | Dipakai sebagai `{taskId}` saat memanggil **Complete Task** ([§4](#4-endpoint-complete-task)) |
 | 3 | `data[].variables` | Hanya muncul kalau `includeProcessVariables=true` — lihat [§3.2](#32-variabel-proses-tambahan-includeprocessvariables) |
 | 4 | `total` | Jumlah total task yang cocok filter (berguna juga sebagai teknik hitung cepat, lihat [§5.1](#51-hitung-task-aktif-per-grup)) |
 
@@ -377,9 +377,9 @@ Contoh implementasi yang terbukti jalan: lihat rujukan komposabel di akhir
 
 **Method:** `POST`
 
-**URL:** `{FLOWABLE_BASE_URL}/runtime/tasks/{taskId}` (`{taskId}` didapat dari notifikasi Endpoint A sebagai `taskId`, atau dari field `id` hasil PULL §3)
+**URL:** `{FLOWABLE_BASE_URL}/runtime/tasks/{taskId}` (`{taskId}` didapat dari notifikasi Endpoint A sebagai `taskId`, atau dari field `id` hasil PULL [§3](#3-endpoint-pull-polling-task))
 
-**Header:** `Content-Type: application/json`, `Authorization: Basic <base64 username:password>` (sama seperti §2/§3)
+**Header:** `Content-Type: application/json`, `Authorization: Basic <base64 username:password>` (sama seperti [§2](#2-endpoint-start-instance)/[§3](#3-endpoint-pull-polling-task))
 
 Dipakai Aplikasi AWS untuk **menyelesaikan** satu task `UserTask_ApprovalBod`
 setelah approver terkait menentukan keputusannya — ini langkah yang
@@ -465,9 +465,9 @@ Contoh implementasi yang terbukti jalan (pola request, bukan pola
 
 Sepuluh endpoint di bawah ini **opsional** — Flowable bawaan juga, tidak
 perlu dibangun, tapi tidak wajib dipanggil supaya proses "Approval Berita
-Acara" bisa berjalan (berbeda dari §2/§3/§4 yang wajib).
+Acara" bisa berjalan (berbeda dari [§2](#2-endpoint-start-instance)/[§3](#3-endpoint-pull-polling-task)/[§4](#4-endpoint-complete-task) yang wajib).
 
-**§5.1–§5.5** dipakai kalau Aplikasi AWS butuh kemampuan operasional
+**[§5.1](#51-hitung-task-aktif-per-grup)–[§5.5](#55-riwayat-aktivitas-proses-audit-trail)** dipakai kalau Aplikasi AWS butuh kemampuan operasional
 tambahan: menghitung task aktif per grup (mis. untuk badge notifikasi
 jumlah approval menunggu), melihat detail satu task langsung dari
 `taskId`, mengecek apakah satu process instance masih berjalan atau
@@ -476,15 +476,15 @@ audit lengkap satu instance dari awal sampai akhir — kelimanya **sudah
 dipakai & terbukti jalan** di Studio ini sendiri (lihat rujukan
 komposabel di tiap subbagian).
 
-**§5.6–§5.10** adalah **usulan tambahan** berdasarkan kemampuan yang
+**[§5.6](#56-aksi-lain-pada-task-claim-delegate-resolve)–[§5.10](#510-monitoring-failed-job-dead-letter)** adalah **usulan tambahan** berdasarkan kemampuan yang
 sudah tersedia di spesifikasi resmi Flowable tapi belum pernah menjadi
 bagian kontrak API untuk proses "Approval Berita Acara" ini secara
-spesifik: mengklaim/mendelegasikan/resolve task (§5.6), membatalkan
-process instance (§5.7), menambahkan komentar/alasan pada task (§5.8),
-mengambil diagram posisi process instance (§5.9), dan memantau failed
-job (§5.10). Tiga di antaranya (§5.6/§5.7/§5.8) sudah terbukti jalan di
+spesifik: mengklaim/mendelegasikan/resolve task ([§5.6](#56-aksi-lain-pada-task-claim-delegate-resolve)), membatalkan
+process instance ([§5.7](#57-batalkan-process-instance)), menambahkan komentar/alasan pada task ([§5.8](#58-komentaralasan-pada-task)),
+mengambil diagram posisi process instance ([§5.9](#59-diagram-posisi-process-instance)), dan memantau failed
+job ([§5.10](#510-monitoring-failed-job-dead-letter)). Tiga di antaranya ([§5.6](#56-aksi-lain-pada-task-claim-delegate-resolve)/[§5.7](#57-batalkan-process-instance)/[§5.8](#58-komentaralasan-pada-task)) sudah terbukti jalan di
 Studio ini lewat fitur umum yang tidak terkait proses ini secara
-spesifik (Task/Kelola Proses/Komentar); dua sisanya (§5.9/§5.10) belum
+spesifik (Task/Kelola Proses/Komentar); dua sisanya ([§5.9](#59-diagram-posisi-process-instance)/[§5.10](#510-monitoring-failed-job-dead-letter)) belum
 pernah dipakai proyek ini sama sekali — lihat catatan verifikasi di
 masing-masing subbagian sebelum diadopsi sebagai fitur Aplikasi AWS.
 
@@ -494,9 +494,9 @@ masing-masing subbagian sebelum diadopsi sebagai fitur Aplikasi AWS.
 
 **URL:** `{FLOWABLE_BASE_URL}/runtime/tasks?candidateGroup={key}&size=0`
 
-**Header:** `Authorization: Basic <base64 username:password>` (sama seperti §3)
+**Header:** `Authorization: Basic <base64 username:password>` (sama seperti [§3](#3-endpoint-pull-polling-task))
 
-Variasi dari endpoint PULL (§3) — `size=0` membuat Flowable tidak
+Variasi dari endpoint PULL ([§3](#3-endpoint-pull-polling-task)) — `size=0` membuat Flowable tidak
 mengembalikan daftar task-nya, cukup jumlah totalnya saja lewat field
 `total` di respons (`DataResponseTaskResponse`, dikonfirmasi terhadap
 `reference/flowable-swagger-process.json`).
@@ -528,8 +528,8 @@ relevan:
 
 Berguna kalau Aplikasi AWS hanya butuh **angka** (mis. "5 approval
 menunggu Anda" di badge notifikasi UI) tanpa perlu menarik & membuang
-daftar task lengkapnya — lebih ringan daripada memanggil §3 penuh lalu
-menghitung `.length` di sisi Aplikasi AWS. Parameter query lain di §3.1
+daftar task lengkapnya — lebih ringan daripada memanggil [§3](#3-endpoint-pull-polling-task) penuh lalu
+menghitung `.length` di sisi Aplikasi AWS. Parameter query lain di [§3.1](#31-parameter-query)
 (`processInstanceId`, `dueAfter`/`dueBefore`, dst.) bisa digabung di sini
 juga untuk menghitung subset tertentu.
 
@@ -544,12 +544,12 @@ tapi teknik query-nya identik.
 
 **URL:** `{FLOWABLE_BASE_URL}/runtime/tasks/{taskId}`
 
-**Header:** `Authorization: Basic <base64 username:password>` (sama seperti §3)
+**Header:** `Authorization: Basic <base64 username:password>` (sama seperti [§3](#3-endpoint-pull-polling-task))
 
 Mengambil detail satu task langsung dari `{taskId}` — berguna kalau
 Aplikasi AWS sudah tahu `taskId` (mis. dari payload notifikasi Endpoint A
 di [KONTRAK-API-APLIKASI-AWS.md](./KONTRAK-API-APLIKASI-AWS.md)) dan ingin
-detail lengkapnya tanpa query ulang lewat §3 dengan filter `candidateGroup`.
+detail lengkapnya tanpa query ulang lewat [§3](#3-endpoint-pull-polling-task) dengan filter `candidateGroup`.
 
 #### 5.2.1. Contoh request & respons
 
@@ -562,7 +562,7 @@ Authorization: Basic <base64 username:password>
 
 ##### Respons
 
-`200 OK` — field yang sama seperti satu item `data` di respons §3,
+`200 OK` — field yang sama seperti satu item `data` di respons [§3](#3-endpoint-pull-polling-task),
 lihat `FlowableTask` di `src/types/flowable.ts`:
 
 ```json
@@ -580,9 +580,9 @@ lihat `FlowableTask` di `src/types/flowable.ts`:
 
 | No. | Field respons | Keterangan |
 |---|---|---|
-| 1 | `id` | ID task ini — sama dengan `{taskId}` yang diminta, dipakai juga sebagai `{taskId}` saat memanggil **Complete Task** (§4) |
+| 1 | `id` | ID task ini — sama dengan `{taskId}` yang diminta, dipakai juga sebagai `{taskId}` saat memanggil **Complete Task** ([§4](#4-endpoint-complete-task)) |
 | 2 | `name` | Nama task BPMN (mis. "Approval BOD") |
-| 3 | `processInstanceId` | ID process instance pemilik task ini — dipakai untuk §5.3/§5.4/§5.5 |
+| 3 | `processInstanceId` | ID process instance pemilik task ini — dipakai untuk [§5.3](#53-cek-status-process-instance-berjalanselesai)/[§5.4](#54-ambil-variabel-proses-langsung)/[§5.5](#55-riwayat-aktivitas-proses-audit-trail) |
 | 4 | `assignee` | Approver yang sudah meng-klaim task ini, atau `null` kalau belum diklaim |
 | 5 | `owner` | Pemilik task (biasanya `null` untuk alur candidate-group biasa) |
 | 6 | `delegationState` | Status delegasi task (`null` kalau tidak sedang didelegasikan) |
@@ -592,7 +592,7 @@ lihat `FlowableTask` di `src/types/flowable.ts`:
 | No. | Kode respons | Arti |
 |---|---|---|
 | 1 | `200 OK` | Task ditemukan — body seperti contoh di atas |
-| 2 | `404 Not Found` | Task tidak ditemukan (mis. sudah di-complete lewat §4, atau `taskId` salah) |
+| 2 | `404 Not Found` | Task tidak ditemukan (mis. sudah di-complete lewat [§4](#4-endpoint-complete-task), atau `taskId` salah) |
 
 ### 5.3. Cek status process instance (berjalan/selesai)
 
@@ -602,7 +602,7 @@ lihat `FlowableTask` di `src/types/flowable.ts`:
 
 **URL (by Business Key):** `{FLOWABLE_BASE_URL}/runtime/process-instances?businessKey={key}`
 
-**Header:** `Authorization: Basic <base64 username:password>` (sama seperti §3)
+**Header:** `Authorization: Basic <base64 username:password>` (sama seperti [§3](#3-endpoint-pull-polling-task))
 
 Dipakai untuk mengetahui apakah satu process instance **masih berjalan**
 atau **sudah selesai**, tanpa menunggu Callback Hasil Approval (Endpoint B
@@ -700,14 +700,14 @@ termasuk fallback ke histori): `src/composables/useProcessTracking.ts`
 
 **URL:** `{FLOWABLE_BASE_URL}/runtime/process-instances/{processInstanceId}/variables`
 
-**Header:** `Authorization: Basic <base64 username:password>` (sama seperti §3)
+**Header:** `Authorization: Basic <base64 username:password>` (sama seperti [§3](#3-endpoint-pull-polling-task))
 
 Mengambil semua variabel proses (`jenisKlien`, `nilaiProjectRupiah`,
 `kategoriNilai`, `approvalBodLabel`, `hasilApprovalBod`, dst. — lihat
 [§2.1](#21-variabel-proses-yang-wajib-dikirim) & [§3.2](#32-variabel-proses-tambahan-includeprocessvariables))
-langsung dari satu process instance, tanpa lewat query task di §3. Berguna
+langsung dari satu process instance, tanpa lewat query task di [§3](#3-endpoint-pull-polling-task). Berguna
 kalau Aplikasi AWS sudah tahu `processInstanceId` (instance masih berjalan
-— untuk instance yang **sudah selesai**, pakai riwayat aktivitas di §5.5
+— untuk instance yang **sudah selesai**, pakai riwayat aktivitas di [§5.5](#55-riwayat-aktivitas-proses-audit-trail)
 atau tunggu Callback Hasil Approval) dan hanya perlu nilai variabelnya,
 bukan daftar task.
 
@@ -745,7 +745,7 @@ Authorization: Basic <base64 username:password>
 | No. | Kode respons | Arti |
 |---|---|---|
 | 1 | `200 OK` | Instance ditemukan — array variabel seperti contoh di atas |
-| 2 | `400 Bad Request` | `{processInstanceId}` tidak ditemukan (mis. instance sudah selesai — pakai §5.5 atau Callback Hasil Approval — atau ID salah) — dikonfirmasi terhadap `reference/flowable-swagger-process.json` (`operationId: listProcessInstanceVariables`); perhatikan Flowable mendokumentasikan ini sebagai `400`, BUKAN `404`, meski deskripsi resminya sendiri menyebut "not found" |
+| 2 | `400 Bad Request` | `{processInstanceId}` tidak ditemukan (mis. instance sudah selesai — pakai [§5.5](#55-riwayat-aktivitas-proses-audit-trail) atau Callback Hasil Approval — atau ID salah) — dikonfirmasi terhadap `reference/flowable-swagger-process.json` (`operationId: listProcessInstanceVariables`); perhatikan Flowable mendokumentasikan ini sebagai `400`, BUKAN `404`, meski deskripsi resminya sendiri menyebut "not found" |
 
 `hasilApprovalBod` di atas terisi sebagian (baru 2 dari 3 approver) karena
 process instance ini masih berjalan — lihat [§2.1](#21-variabel-proses-yang-wajib-dikirim)
@@ -761,13 +761,13 @@ Contoh implementasi yang terbukti jalan: `src/composables/useProcessTracking.ts`
 
 **URL:** `{FLOWABLE_BASE_URL}/history/historic-activity-instances?processInstanceId={id}`
 
-**Header:** `Authorization: Basic <base64 username:password>` (sama seperti §3)
+**Header:** `Authorization: Basic <base64 username:password>` (sama seperti [§3](#3-endpoint-pull-polling-task))
 
 Mengambil seluruh langkah yang sudah dilalui satu process instance secara
 berurutan, dari `StartEvent_1` sampai `EndEvent_1` — siapa mengerjakan apa,
 kapan, dan berapa lama. Berguna untuk audit/compliance: menunjukkan
 riwayat lengkap satu pengajuan approval dari awal sampai akhir, termasuk
-approver mana yang memproses task kapan lewat Complete Task (§4).
+approver mana yang memproses task kapan lewat Complete Task ([§4](#4-endpoint-complete-task)).
 
 #### 5.5.1. Contoh request & respons
 
@@ -831,11 +831,11 @@ pemformatan durasi & label jenis aktivitas ke Bahasa Indonesia):
 
 **Method:** `POST`
 
-**URL:** `{FLOWABLE_BASE_URL}/runtime/tasks/{taskId}` (endpoint yang SAMA dengan **Complete Task**, §4 — bedanya cuma nilai `action` di body)
+**URL:** `{FLOWABLE_BASE_URL}/runtime/tasks/{taskId}` (endpoint yang SAMA dengan **Complete Task**, [§4](#4-endpoint-complete-task) — bedanya cuma nilai `action` di body)
 
-**Header:** `Content-Type: application/json`, `Authorization: Basic <base64 username:password>` (sama seperti §4)
+**Header:** `Content-Type: application/json`, `Authorization: Basic <base64 username:password>` (sama seperti [§4](#4-endpoint-complete-task))
 
-Selain `action: "complete"` (§4.1), skema resmi `TaskActionRequest`
+Selain `action: "complete"` ([§4.1](#41-variabel-yang-wajib-dikirim-saat-complete)), skema resmi `TaskActionRequest`
 Flowable mendukung 3 nilai `action` lain yang belum dipakai proses
 "Approval Berita Acara" ini — dikonfirmasi terhadap
 `reference/flowable-swagger-process.json` (`operationId:
@@ -845,7 +845,7 @@ executeTaskAction`, definisi `TaskActionRequest`):
 |---|---|---|---|
 | 1 | `claim` | Mencegah 2 staf yang sama-sama berhak atas satu key `dynamicApproverGroups` (mis. `"bod-1"` dipetakan ke lebih dari satu orang di sisi Aplikasi AWS sendiri — ingat, Flowable tidak pernah memvalidasi isi grup ini, lihat [§2.2](#22-format-dynamicapprovergroups)) memproses task yang sama secara bersamaan | `assignee` (wajib) — user yang meng-klaim |
 | 2 | `delegate` | Approver berhalangan (cuti/sakit) — alihkan sementara ke backup; approver asli tetap tercatat sebagai `owner` task, backup jadi `assignee` sementara | `assignee` (wajib) — user tujuan delegasi |
-| 3 | `resolve` | Backup yang menerima delegasi (poin 2) mengembalikan task ke approver asli setelah selesai ditinjau, TANPA ikut memutuskan `keputusanBod` — approver asli lanjut memutuskan lewat **Complete Task** (§4) biasa | Tidak ada — `assignee` otomatis kembali ke `owner` |
+| 3 | `resolve` | Backup yang menerima delegasi (poin 2) mengembalikan task ke approver asli setelah selesai ditinjau, TANPA ikut memutuskan `keputusanBod` — approver asli lanjut memutuskan lewat **Complete Task** ([§4](#4-endpoint-complete-task)) biasa | Tidak ada — `assignee` otomatis kembali ke `owner` |
 
 #### 5.6.1. Contoh request & respons
 
@@ -868,7 +868,7 @@ Authorization: Basic <base64 username:password>
 
 ##### Respons
 
-Sama seperti Complete Task (§4) — tidak ada body, cukup cek status code:
+Sama seperti Complete Task ([§4](#4-endpoint-complete-task)) — tidak ada body, cukup cek status code:
 
 | No. | Kode respons | Arti |
 |---|---|---|
@@ -893,7 +893,7 @@ status "sedang didelegasikan" ke penggunanya.
 
 **URL:** `{FLOWABLE_BASE_URL}/runtime/process-instances/{processInstanceId}` (parameter `deleteReason` opsional lewat query string, lihat contoh)
 
-**Header:** `Authorization: Basic <base64 username:password>` (sama seperti §3 — tidak ada body request)
+**Header:** `Authorization: Basic <base64 username:password>` (sama seperti [§3](#3-endpoint-pull-polling-task) — tidak ada body request)
 
 Membatalkan/menghapus satu process instance yang **masih berjalan**
 secara PERMANEN (mis. requester menyadari data pengajuan salah, atau
@@ -923,7 +923,7 @@ Authorization: Basic <base64 username:password>
 
 | No. | Kode respons | Arti |
 |---|---|---|
-| 1 | `204 No Content` | Instance berhasil dibatalkan — semua task terbuka di instance ini ikut terhapus, tidak bisa di-complete lagi lewat Complete Task (§4) |
+| 1 | `204 No Content` | Instance berhasil dibatalkan — semua task terbuka di instance ini ikut terhapus, tidak bisa di-complete lagi lewat Complete Task ([§4](#4-endpoint-complete-task)) |
 | 2 | `404 Not Found` | `{processInstanceId}` tidak ditemukan (mis. sudah selesai normal, atau ID salah) |
 
 Endpoint ini **sudah terbukti jalan** di Studio ini sendiri lewat fitur
@@ -943,7 +943,7 @@ di luar Flowable) kalau pembatalannya berhasil.
 
 **URL:** `{FLOWABLE_BASE_URL}/runtime/tasks/{taskId}/comments`
 
-**Header:** `Content-Type: application/json` (khusus `POST`), `Authorization: Basic <base64 username:password>` (sama seperti §4)
+**Header:** `Content-Type: application/json` (khusus `POST`), `Authorization: Basic <base64 username:password>` (sama seperti [§4](#4-endpoint-complete-task))
 
 Menambahkan/melihat catatan bebas teks pada satu task — dikonfirmasi
 terhadap `reference/flowable-swagger-process.json` (`operationId:
@@ -1002,7 +1002,7 @@ Endpoint ini **sudah terbukti jalan** di Studio ini sendiri (fitur
 `addComment()`/`loadComments()`) — tapi belum pernah
 diekspos/didokumentasikan sebagai bagian kontrak API Aplikasi AWS untuk
 proses ini. Kalau diadopsi, urutan yang disarankan: Aplikasi AWS
-memanggil endpoint ini SEBELUM memanggil Complete Task (§4) untuk
+memanggil endpoint ini SEBELUM memanggil Complete Task ([§4](#4-endpoint-complete-task)) untuk
 keputusan `TOLAK`/`REVISI` (sisipkan alasan dulu, baru selesaikan
 task-nya) — bukan sesudahnya, karena task yang sudah di-complete tidak
 bisa ditambah komentar baru lewat endpoint runtime ini (harus lewat
@@ -1014,7 +1014,7 @@ endpoint historic yang terpisah).
 
 **URL:** `{FLOWABLE_BASE_URL}/runtime/process-instances/{processInstanceId}/diagram`
 
-**Header:** `Authorization: Basic <base64 username:password>` (sama seperti §3)
+**Header:** `Authorization: Basic <base64 username:password>` (sama seperti [§3](#3-endpoint-pull-polling-task))
 
 Mengambil gambar diagram BPMN (format PNG, dikirim sebagai byte array)
 dengan elemen yang sedang aktif ditandai — mirip fitur "Status Proses"
@@ -1063,7 +1063,7 @@ mem-parsing-nya sebagai JSON.
 
 **URL:** `{FLOWABLE_BASE_URL}/management/deadletter-jobs?processInstanceId={id}`
 
-**Header:** `Authorization: Basic <base64 username:password>` (sama seperti §3)
+**Header:** `Authorization: Basic <base64 username:password>` (sama seperti [§3](#3-endpoint-pull-polling-task))
 
 Menarik daftar "dead-letter job" — job asinkron yang GAGAL dieksekusi
 berulang kali sampai kehabisan retry (mis. Task Listener HTTP ke
@@ -1127,8 +1127,8 @@ benar-benar berguna untuk memantau risiko di [§6.1 poin 3](#61-risiko).
 
 | No. | Risiko | Detail & mitigasi |
 |---|---|---|
-| 1 | Concurrency saat 2+ approver menyelesaikan task hampir bersamaan | Kalau dua atau lebih task `UserTask_ApprovalBod` paralel di-complete nyaris bersamaan lewat **Complete Task** (§4), spesifikasi resmi Flowable mengonfirmasi kemungkinan respons `409 Conflict` ("task was updated simultaneously") — tapi belum ada pengujian eksplisit di server produksi soal seberapa sering ini terjadi dalam praktik. Kalau Aplikasi AWS menerima `409` saat memanggil Complete Task, catat pesan error lengkapnya dan pertimbangkan retry dengan backoff singkat di sisi Aplikasi AWS sendiri (endpoint ini tidak menyediakan retry otomatis) |
-| 2 | Start Instance gagal total kalau `jenisKlien` tidak persis salah satu dari 3 nilai yang didukung | Decision DMN internal (§2.4) memakai `decisionTaskThrowErrorOnNoHits="true"` — kalau `jenisKlien` typo/beda kapitalisasi (mis. `"baru"` huruf kecil atau `"New"`), decision tidak menemukan rule yang cocok dan **seluruh panggilan Start Instance gagal** (dijalankan sinkron, bukan gagal belakangan). Ini BUKAN risiko hipotetis — ini konsekuensi langsung dari desain `hitPolicy="UNIQUE"` di `examples/keputusan-approval-bod.dmn`, yang rule-nya sudah mencakup semua kombinasi valid `jenisKlien`×`kategoriNilai`. Mitigasi: validasi `jenisKlien` di sisi Aplikasi AWS SEBELUM memanggil Start Instance (persis `"Baru"`/`"Existing"`/`"Tender"`, case-sensitive) |
+| 1 | Concurrency saat 2+ approver menyelesaikan task hampir bersamaan | Kalau dua atau lebih task `UserTask_ApprovalBod` paralel di-complete nyaris bersamaan lewat **Complete Task** ([§4](#4-endpoint-complete-task)), spesifikasi resmi Flowable mengonfirmasi kemungkinan respons `409 Conflict` ("task was updated simultaneously") — tapi belum ada pengujian eksplisit di server produksi soal seberapa sering ini terjadi dalam praktik. Kalau Aplikasi AWS menerima `409` saat memanggil Complete Task, catat pesan error lengkapnya dan pertimbangkan retry dengan backoff singkat di sisi Aplikasi AWS sendiri (endpoint ini tidak menyediakan retry otomatis) |
+| 2 | Start Instance gagal total kalau `jenisKlien` tidak persis salah satu dari 3 nilai yang didukung | Decision DMN internal ([§2.4](#24-keputusan-dmn-internal--prasyarat-deployment)) memakai `decisionTaskThrowErrorOnNoHits="true"` — kalau `jenisKlien` typo/beda kapitalisasi (mis. `"baru"` huruf kecil atau `"New"`), decision tidak menemukan rule yang cocok dan **seluruh panggilan Start Instance gagal** (dijalankan sinkron, bukan gagal belakangan). Ini BUKAN risiko hipotetis — ini konsekuensi langsung dari desain `hitPolicy="UNIQUE"` di `examples/keputusan-approval-bod.dmn`, yang rule-nya sudah mencakup semua kombinasi valid `jenisKlien`×`kategoriNilai`. Mitigasi: validasi `jenisKlien` di sisi Aplikasi AWS SEBELUM memanggil Start Instance (persis `"Baru"`/`"Existing"`/`"Tender"`, case-sensitive) |
 | 3 | Risiko endpoint yang **harus dibangun** Aplikasi AWS sendiri | `ignoreException` belum diverifikasi, panggilan HTTP dari Task Listener belum diuji, latensi sinkron Endpoint A, tidak ada retry dari Flowable — lihat [KONTRAK-API-APLIKASI-AWS.md §4](./KONTRAK-API-APLIKASI-AWS.md#4-risiko--hal-yang-belum-teruji-di-server-produksi) (tidak diulang di sini supaya tidak ada dua sumber kebenaran untuk hal yang sama) |
 
 ### 6.2. Checklist implementasi & pengujian
