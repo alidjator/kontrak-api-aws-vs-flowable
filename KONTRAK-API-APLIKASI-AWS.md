@@ -44,7 +44,10 @@ Aplikasi AWS sedang down, dsb.) — jadi Aplikasi AWS **tidak boleh
 mengandalkan push sebagai satu-satunya sumber kebenaran**. Mekanisme
 pemicu push ini sudah diimplementasikan penuh di sisi BPMN; yang masih
 PLACEHOLDER cuma URL tujuannya — itulah "2 kontrak API" yang harus
-dibangun.
+dibangun. Dokumen ini beberapa kali menyebut **Studio ini** — maksudnya
+BPMN/DMN Studio Vue, aplikasi editor diagram terpisah yang dipakai untuk
+membuat/mengelola diagram proses ini (dibahas lengkap di `README.md`),
+BUKAN bagian dari kontrak API yang harus dibangun Aplikasi AWS.
 
 ```mermaid
 sequenceDiagram
@@ -195,7 +198,7 @@ kontrak endpoint Complete Task itu sendiri) ada di
 
 ## 5. Cara mengganti URL placeholder setelah kontrak tersedia
 
-Studio ini (aplikasi BPMN/DMN Studio Vue) sekarang punya fitur Panel
+Studio ini sekarang punya fitur Panel
 Properti yang bisa langsung mengedit kedua lokasi placeholder ini **tanpa
 edit XML manual**:
 

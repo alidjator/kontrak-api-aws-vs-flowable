@@ -106,10 +106,12 @@ sequenceDiagram
 Ketiga endpoint ini adalah Flowable REST bawaan (`title: "Flowable REST
 API"`, `basePath: /flowable-rest/service`), sudah dikonfirmasi cocok
 terhadap spesifikasi resmi Flowable (`reference/flowable-swagger-process.json`/`.yaml`)
-DAN terhadap kode yang sudah lama berjalan di Studio ini sendiri
-(`useStartProcessInstance.ts`, `useFlowableTasks.ts`, `useNotifyTasks.ts`,
-`useDashboardSummary.ts`) — jadi bisa dipakai langsung sebagai contoh
-implementasi yang terbukti jalan.
+DAN terhadap kode yang sudah lama berjalan di **Studio ini** sendiri
+(BPMN/DMN Studio Vue — aplikasi editor diagram terpisah dari kontrak API
+ini, dibahas di `README.md`, bukan bagian dari yang harus dibangun
+Aplikasi AWS) — `useStartProcessInstance.ts`, `useFlowableTasks.ts`,
+`useNotifyTasks.ts`, `useDashboardSummary.ts` — jadi bisa dipakai
+langsung sebagai contoh implementasi yang terbukti jalan.
 
 Di seluruh contoh URL pada dokumen ini (§2 sampai §5), `{FLOWABLE_BASE_URL}`
 adalah **placeholder generik** untuk base URL server Flowable yang
