@@ -78,11 +78,14 @@ proyek ini):
    kapan saja lewat PULL ([§3](#3-endpoint-pull-polling-task), `includeProcessVariables=true`) tanpa
    menunggu callback ini.
 
-Selain 3 endpoint inti di atas, ada 5 endpoint Flowable bawaan lain yang
+Selain 3 endpoint inti di atas, ada 10 endpoint Flowable bawaan lain yang
 **opsional** (dipakai sesuai kebutuhan operasional Aplikasi AWS, bukan
-wajib untuk proses ini bisa berjalan) — mis. menghitung task aktif per
+wajib untuk proses ini bisa berjalan) — 5 di antaranya (§5.1–§5.5) sudah
+dipakai & terbukti jalan di Studio ini (mis. menghitung task aktif per
 grup untuk badge notifikasi, mengecek status akhir process instance, atau
-menarik riwayat audit lengkap — semuanya dikumpulkan di
+menarik riwayat audit lengkap), 5 sisanya (§5.6–§5.10) adalah usulan
+tambahan yang belum tentu semua relevan untuk Aplikasi AWS (lihat catatan
+verifikasi masing-masing sebelum diadopsi) — semuanya dikumpulkan di
 [§5 Endpoint Monitoring & Operasional Tambahan](#5-endpoint-monitoring--operasional-tambahan).
 
 ```mermaid
@@ -299,7 +302,7 @@ dan [§3](./KONTRAK-API-APLIKASI-AWS.md#3-endpoint-b--callback-hasil-approval)):
 | 2 | `nilaiProjectRupiah` | Nilai yang dikirim saat Start Instance ([§2.1](#21-variabel-proses-yang-wajib-dikirim)) |
 | 3 | `kategoriNilai` | `"Kecil"`/`"Menengah"`/`"Besar"` — dihitung otomatis dari `nilaiProjectRupiah` oleh gateway di BPMN, BUKAN dikirim Aplikasi AWS (lihat [§2.4](#24-keputusan-dmn-internal--prasyarat-deployment)) |
 | 4 | `approvalBodLabel` | Label tampilan tingkat approval BOD (mis. `"2 BOD + Managing Director (dinamis)"`) — output decision DMN internal, murni untuk ditampilkan Aplikasi AWS, tidak dipakai logika BPMN apa pun (lihat [§2.4](#24-keputusan-dmn-internal--prasyarat-deployment)) |
-| 5 | `hasilApprovalBod` | Terisi sebagian atau lengkap, tergantung berapa banyak approver yang sudah menyelesaikan task-nya lewat **Complete Task** ([§4](#4-endpoint-complete-task)) |
+| 5 | `hasilKeputusan_<grup>` | Satu variabel TERPISAH per approver yang SUDAH menyelesaikan task-nya lewat **Complete Task** ([§4](#4-endpoint-complete-task)) — `<grup>` adalah key approver persis seperti salah satu elemen `dynamicApproverGroups` ([§2.1](#21-variabel-proses-yang-wajib-dikirim)), nilainya salah satu dari `"DITERIMA"`/`"DITOLAK"`/`"PERLU REVISI"` (lihat pemetaan di [§4.1](#41-variabel-yang-wajib-dikirim-saat-complete)). **TIDAK ADA** satu variabel gabungan `hasilApprovalBod` yang bisa dibaca di sini — array `hasilApprovalBod` cuma dibangun SEKALI, di akhir, tepat sebelum Endpoint B (Callback Hasil Approval) terkirim, lihat [KONTRAK-API-APLIKASI-AWS.md §3](./KONTRAK-API-APLIKASI-AWS.md#3-endpoint-b--callback-hasil-approval). Kalau Aplikasi AWS butuh progres approval SEBELUM semua approver selesai, cek variabel `hasilKeputusan_<grup>` mana saja yang SUDAH muncul (approver itu berarti sudah selesai) — approver yang key-nya belum punya `hasilKeputusan_<grup>` berarti masih menunggu |
 
 Contoh implementasi yang terbukti jalan (pola query string, auth header,
 dan pola polling berkala dengan deteksi task baru): `src/composables/useFlowableTasks.ts`
@@ -313,7 +316,8 @@ dsb.) kalau Aplikasi AWS butuh contoh tambahan.
 ### 3.3. Contoh request & respons
 
 Contoh berikut mencari task menunggu untuk approver grup `"2"`, sekalian
-menyertakan variabel proses.
+menyertakan variabel proses — grup `"1"` diasumsikan SUDAH selesai lebih
+dulu (`hasilKeputusan_1` sudah ada), grup `"2"` (task ini) masih menunggu.
 
 #### Request
 
@@ -344,7 +348,7 @@ per task:
       "variables": [
         { "name": "jenisKlien", "value": "Existing" },
         { "name": "nilaiProjectRupiah", "value": 1500000000 },
-        { "name": "hasilApprovalBod", "value": [] }
+        { "name": "hasilKeputusan_1", "value": "DITERIMA" }
       ]
     }
   ],
@@ -395,16 +399,25 @@ body `TaskActionRequest` — lihat `reference/flowable-swagger-process.json`).
 
 | No. | Nama variabel | Scope | Tipe (`type`) | Nilai valid | Keterangan |
 |---|---|---|---|---|---|
-| 1 | `keputusanBod` | Task-local (**bukan** variabel proses) | `string` | `"TERIMA"`, `"TOLAK"`, `"REVISI"` | Dibaca oleh `flowable:taskListener` event `complete` pada `UserTask_ApprovalBod`, otomatis dipetakan & ditambahkan ke variabel proses `hasilApprovalBod` — lihat pemetaan di bawah |
+| 1 | `keputusanBod` | Task-local (**bukan** variabel proses) | `string` | `"TERIMA"`, `"TOLAK"`, `"REVISI"` | Dibaca oleh `flowable:taskListener` event `complete` pada `UserTask_ApprovalBod`, otomatis dipetakan & ditulis ke variabel proses `hasilKeputusan_<grup>` (satu variabel unik per approver, `<grup>` dari `currentApproverGroup`) — lihat pemetaan di bawah & [§3.2 poin 5](#32-variabel-proses-tambahan-includeprocessvariables) |
 
 **Pemetaan nilai** (dilakukan otomatis oleh script listener BPMN, Aplikasi
 AWS tidak perlu melakukan pemetaan ini sendiri):
 
-| No. | Nilai `keputusanBod` yang dikirim | Hasil yang tercatat di `hasilApprovalBod` |
+| No. | Nilai `keputusanBod` yang dikirim | Hasil yang tercatat di `hasilKeputusan_<grup>` |
 |---|---|---|
 | 1 | `"TERIMA"` | `"DITERIMA"` |
 | 2 | `"TOLAK"` | `"DITOLAK"` |
 | 3 | `"REVISI"` | `"PERLU REVISI"` (perhatikan spasi, bukan "DIREVISI") |
+
+**Kenapa per-approver, bukan satu List bersama**: desain awal proses ini
+memakai satu variabel proses `hasilApprovalBod` (List) yang dibaca-tambah-
+tulis SEMUA approver paralel — desain itu TERBUKTI menimbulkan race
+condition nyata di produksi (approver paralel saling menimpa penulisan
+variabel yang sama). Diganti jadi satu variabel UNIK per approver supaya
+tidak ada satu pun variabel yang ditulis lebih dari satu eksekusi paralel
+— lihat komentar KOREKSI KEDELAPAN di kepala `examples/approval-berita-acara.bpmn`
+dan RINGKASAN-PEMBAHASAN.md Update 66 untuk kronologi lengkapnya.
 
 Studio ini menyediakan 3 tombol aksi (Setujui/Tolak/Minta Revisi) di UI-nya
 sendiri yang di baliknya mengirim `keputusanBod` persis dengan salah satu
@@ -445,19 +458,20 @@ hasil panggilan ini.
 | 3 | `404 Not Found` | `{taskId}` tidak ditemukan (mis. task sudah di-complete approver lain atau ID salah) |
 | 4 | `409 Conflict` | Task sedang diubah bersamaan (concurrency) — lihat [§6.1 poin 1](#61-risiko) |
 
-**Belum diverifikasi ke server produksi**: bentuk request/respons di atas
-mengikuti konvensi resmi `TaskActionRequest`/`RestVariable` Flowable
-(dikonfirmasi terhadap `reference/flowable-swagger-process.json`), sama
-seperti `TaskCompleteVariablePayload` yang sudah lama ditulis di
-`src/types/flowable.ts` — tapi belum pernah dicoba langsung ke server
-Flowable produksi dari proyek ini. Kalau server menolak/mengabaikan
-`variables` pada action `complete`, atau meminta `type` yang berbeda untuk
-suatu nilai, catat pesan error persisnya (ikuti pola pemecahan masalah yang
-sama dipakai untuk memverifikasi fitur lain di proyek ini).
+**Sudah diverifikasi ke server produksi** (September 2026): bentuk
+request/respons di atas — termasuk field `variables` dengan `{name,
+value, type}` persis seperti contoh — dikonfirmasi benar-benar berjalan
+lewat pengujian langsung berkali-kali ke server Flowable produksi proyek
+ini (bukan cuma simulasi/spesifikasi), baik lewat proses diagnostik
+sekali-pakai maupun penyelesaian task Approval BOD sungguhan pada proses
+"Approval Berita Acara" ini sendiri — lihat RINGKASAN-PEMBAHASAN.md
+Update 65/66 untuk detail pengujiannya (termasuk pengujian dengan banyak
+task diselesaikan BENAR-BENAR bersamaan lewat `Promise.all`, bukan cuma
+berurutan).
 
-Contoh implementasi yang terbukti jalan (pola request, bukan pola
-`variables` yang di atas — lihat catatan "belum diverifikasi"):
-`src/composables/useFlowableTasks.ts` (fungsi `complete()`).
+Contoh implementasi yang terbukti jalan (termasuk pola `variables` di
+atas, sudah konsisten dengan yang diverifikasi): `src/composables/useFlowableTasks.ts`
+(fungsi `complete()`).
 
 ---
 
@@ -703,7 +717,8 @@ termasuk fallback ke histori): `src/composables/useProcessTracking.ts`
 **Header:** `Authorization: Basic <base64 username:password>` (sama seperti [§3](#3-endpoint-pull-polling-task))
 
 Mengambil semua variabel proses (`jenisKlien`, `nilaiProjectRupiah`,
-`kategoriNilai`, `approvalBodLabel`, `hasilApprovalBod`, dst. — lihat
+`kategoriNilai`, `approvalBodLabel`, `hasilKeputusan_<grup>` per approver
+yang sudah selesai, dst. — lihat
 [§2.1](#21-variabel-proses-yang-wajib-dikirim) & [§3.2](#32-variabel-proses-tambahan-includeprocessvariables))
 langsung dari satu process instance, tanpa lewat query task di [§3](#3-endpoint-pull-polling-task). Berguna
 kalau Aplikasi AWS sudah tahu `processInstanceId` (instance masih berjalan
@@ -732,13 +747,8 @@ Authorization: Basic <base64 username:password>
   { "name": "kategoriNilai", "value": "Menengah" },
   { "name": "approvalBodLabel", "value": "2 BOD (dinamis)" },
   { "name": "dynamicApproverGroups", "value": "1,2,3" },
-  {
-    "name": "hasilApprovalBod",
-    "value": [
-      { "group": "1", "keputusan": "DITERIMA" },
-      { "group": "2", "keputusan": "DITOLAK" }
-    ]
-  }
+  { "name": "hasilKeputusan_1", "value": "DITERIMA" },
+  { "name": "hasilKeputusan_2", "value": "DITOLAK" }
 ]
 ```
 
@@ -747,10 +757,17 @@ Authorization: Basic <base64 username:password>
 | 1 | `200 OK` | Instance ditemukan — array variabel seperti contoh di atas |
 | 2 | `400 Bad Request` | `{processInstanceId}` tidak ditemukan (mis. instance sudah selesai — pakai [§5.5](#55-riwayat-aktivitas-proses-audit-trail) atau Callback Hasil Approval — atau ID salah) — dikonfirmasi terhadap `reference/flowable-swagger-process.json` (`operationId: listProcessInstanceVariables`); perhatikan Flowable mendokumentasikan ini sebagai `400`, BUKAN `404`, meski deskripsi resminya sendiri menyebut "not found" |
 
-`hasilApprovalBod` di atas terisi sebagian (baru 2 dari 3 approver) karena
-process instance ini masih berjalan — lihat [§2.1](#21-variabel-proses-yang-wajib-dikirim)
-untuk arti tiap variabel dan [KONTRAK-API-APLIKASI-AWS.md §3](./KONTRAK-API-APLIKASI-AWS.md#3-endpoint-b--callback-hasil-approval)
-untuk bentuk `hasilApprovalBod` lengkap setelah semua approver selesai.
+Baru 2 dari 3 approver (`hasilKeputusan_1`/`hasilKeputusan_2`) yang
+muncul di atas karena process instance ini masih berjalan — approver
+grup `"3"` belum selesai, jadi `hasilKeputusan_3` belum ada sama sekali
+(BUKAN `null`/kosong — variabelnya benar-benar belum dibuat). Lihat
+[§2.1](#21-variabel-proses-yang-wajib-dikirim) untuk arti tiap variabel
+dan [KONTRAK-API-APLIKASI-AWS.md §3](./KONTRAK-API-APLIKASI-AWS.md#3-endpoint-b--callback-hasil-approval)
+untuk bentuk array `hasilApprovalBod` LENGKAP yang baru dibangun sekali,
+tepat sebelum Callback Hasil Approval dikirim setelah SEMUA approver
+selesai — array itu TIDAK bisa dibaca lebih awal lewat endpoint ini
+maupun lewat PULL ([§3.2](#32-variabel-proses-tambahan-includeprocessvariables)
+poin 5).
 
 Contoh implementasi yang terbukti jalan: `src/composables/useProcessTracking.ts`
 (fungsi `fetchVariables()`).
@@ -1147,5 +1164,5 @@ Semua item di bawah ini **wajib** kecuali disebutkan opsional:
 8. [ ] Uji end-to-end: Start Instance → task baru terbuat & Endpoint A terpanggil (atau terlewat, ketahuan lewat PULL) → Complete Task per approver (perhatikan risiko concurrency di [§6.1](#61-risiko) kalau pengujian melibatkan banyak approver sekaligus) → Endpoint B terpanggil dengan `hasilApprovalBod` lengkap setelah semua approver selesai (lihat [§2](#2-endpoint-start-instance), [§3](#3-endpoint-pull-polling-task) & [§4](#4-endpoint-complete-task) di dokumen ini)
 9. [ ] Validasi `jenisKlien` di sisi Aplikasi AWS SEBELUM memanggil Start Instance — harus **persis** `"Baru"`, `"Existing"`, atau `"Tender"` (case-sensitive), bukan sekadar "ada isinya" (lihat [§2.4](#24-keputusan-dmn-internal--prasyarat-deployment) & [§6.1](#61-risiko) poin 2)
 10. [ ] Pastikan `examples/approval-berita-acara.bpmn` DAN `examples/keputusan-approval-bod.dmn` sudah ter-deploy ke server Flowable sebelum go-live/pengujian pertama (lihat [§2.4](#24-keputusan-dmn-internal--prasyarat-deployment) poin 5)
-11. [ ] *(opsional)* Implementasikan endpoint monitoring/operasional tambahan sesuai kebutuhan (badge hitung task, detail task, cek status instance, ambil variabel langsung, audit trail) (lihat [§5](#5-endpoint-monitoring--operasional-tambahan) di dokumen ini)
+11. [ ] *(opsional)* Implementasikan endpoint monitoring/operasional tambahan sesuai kebutuhan — 5 yang sudah terbukti jalan (badge hitung task, detail task, cek status instance, ambil variabel langsung, audit trail) dan/atau 5 usulan tambahan (claim/delegate/resolve, batalkan instance, komentar, diagram posisi, monitoring failed job) (lihat [§5](#5-endpoint-monitoring--operasional-tambahan) di dokumen ini)
 
